@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+{% block title %}Budgets — Smart Expense Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .budget-card {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.3s;
+    }
+    .budget-card:hover { border-color: rgba(22,163,74,0.3); }
+    .budget-card.danger { border-color: rgba(239,68,68,0.3); }
+    .budget-card.warning { border-color: rgba(245,158,11,0.3); }
+    .progress {
+        height: 8px;
+        background: #1f2937;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .progress-bar { border-radius: 4px; transition: width 0.6s ease; }
+    .progress-success { background: linear-gradient(90deg, #16a34a, #22c55e); }
+    .progress-info { background: linear-gradient(90deg, #2563eb, #60a5fa); }
+    .progress-warning { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .progress-danger { background: linear-gradient(90deg, #dc2626, #f87171); }
+    .set-budget-card {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 16px;
+        padding: 1.5rem;
+        position: sticky;
+        top: 80px;
+    }
+    .status-badge {
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .status-success { background: rgba(22,163,74,0.15); color: #4ade80; }
+    .status-info { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .status-warning { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .status-danger { background: rgba(239,68,68,0.15); color: #f87171; }
+    .summary-bar {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .inline-edit {
+        display: none;
+        gap: 0.5rem;
+        align-items: center;
+        margin-top: 0.5rem;
+    }
+    .inline-edit input {
+        background: #0f172a;
+        border: 1px solid #374151;
+        color: #f9fafb;
+        border-radius: 6px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.85rem;
+        width: 130px;
+    }
+    .inline-edit input:focus {
+        outline: none;
+        border-color: #16a34a;
+    }
+    .btn-edit-small {
+        background: transparent;
+        border: 1px solid #374151;
+        color: #94a3b8;
+        border-radius: 6px;
+        padding: 0.2rem 0.5rem;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-edit-small:hover { border-color: #16a34a; color: #22c55e; }
+    .btn-save-small {
+        background: #16a34a;
+        border: none;
+        color: white;
+        border-radius: 6px;
+        padding: 0.25rem 0.6rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    .btn-cancel-small {
+        background: transparent;
+        border: 1px solid #374151;
+        color: #94a3b8;
+        border-radius: 6px;
+        padding: 0.25rem 0.6rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+    .btn-delete-small {
+        background: transparent;
+        border: 1px solid rgba(239,68,68,0.3);
+        color: #f87171;
+        border-radius: 6px;
+        padding: 0.2rem 0.5rem;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-delete-small:hover {
+        background: rgba(239,68,68,0.1);
+        border-color: #ef4444;
+    }
+    .empty-budgets {
+        text-align: center;
+        padding: 3rem;
+    }
+    .empty-budgets i {
+        font-size: 3rem;
+        color: #1f2937;
+        margin-bottom: 1rem;
+        display: block;
+    }
+    .total-progress {
+        height: 10px;
+        background: #1f2937;
+        border-radius: 5px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+    .total-progress-bar {
+        height: 100%;
+        border-radius: 5px;
+        background: linear-gradient(90deg, #16a34a, #22c55e);
+        transition: width 0.6s ease;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1" style="color:#f1f5f9; font-weight:700;">
+            <i class="fas fa-bullseye me-2" style="color:#22c55e;"></i>
+            Monthly Budgets
+        </h4>
+        <p class="mb-0" style="color:#64748b; font-size:0.9rem;">
+            Tracking for <span style="color:#22c55e;">{{ month }}</span>
+        </p>
+    </div>
+    {% if budget_data %}
+    <form method="POST" action="{{ url_for('expenses.reset_budgets') }}"
+          onsubmit="return confirm('Reset ALL budgets? This cannot be undone.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn"
+                style="background:transparent; border:1px solid rgba(239,68,68,0.3);
+                       color:#f87171; border-radius:8px; font-size:0.85rem;
+                       padding:0.4rem 1rem;">
+            <i class="fas fa-redo me-2"></i>Reset All
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+
+    <!-- LEFT — Budget List -->
+    <div class="col-md-7">
+
+        {% if budget_data %}
+
+        <!-- Summary Bar -->
+        {% set total_budgeted = budget_data|sum(attribute='budget') %}
+        {% set total_spent_all = budget_data|sum(attribute='spent') %}
+        {% set total_pct = (total_spent_all / total_budgeted * 100) if total_budgeted > 0 else 0 %}
+        <div class="summary-bar">
+            <div class="d-flex justify-content-between mb-1">
+                <span style="color:#94a3b8; font-size:0.85rem; font-weight:600;">
+                    <i class="fas fa-chart-pie me-2" style="color:#22c55e;"></i>
+                    Overall Budget Usage
+                </span>
+                <span style="font-size:0.85rem; color:
+                    {% if total_pct >= 100 %}#f87171
+                    {% elif total_pct >= 80 %}#fbbf24
+                    {% else %}#4ade80{% endif %};">
+                    {{ "{:.1f}".format(total_pct) }}%
+                </span>
+            </div>
+            <div class="total-progress">
+                <div class="total-progress-bar"
+                     style="width:{{ [total_pct, 100]|min }}%;
+                            background: {% if total_pct >= 100 %}linear-gradient(90deg,#dc2626,#f87171)
+                            {% elif total_pct >= 80 %}linear-gradient(90deg,#d97706,#fbbf24)
+                            {% else %}linear-gradient(90deg,#16a34a,#22c55e){% endif %};">
+                </div>
+            </div>
+            <div class="d-flex justify-content-between mt-2">
+                <span style="color:#64748b; font-size:0.8rem;">
+                    Spent: <strong style="color:#e2e8f0;">
+                        ৳{{ "{:,.0f}".format(total_spent_all) }}
+                    </strong>
+                </span>
+                <span style="color:#64748b; font-size:0.8rem;">
+                    Remaining: <strong style="color:#22c55e;">
+                        ৳{{ "{:,.0f}".format(total_budgeted - total_spent_all) }}
+                    </strong>
+                </span>
+                <span style="color:#64748b; font-size:0.8rem;">
+                    Total Budget: <strong style="color:#e2e8f0;">
+                        ৳{{ "{:,.0f}".format(total_budgeted) }}
+                    </strong>
+                </span>
+            </div>
+        </div>
+
+        <!-- Warnings -->
+        {% if warnings %}
+        <div class="mb-3">
+            {% for w in warnings %}
+            <div class="alert mb-2" id="warn-{{ loop.index }}" style="
+                background: {% if w.over %}rgba(239,68,68,0.1){% else %}rgba(245,158,11,0.1){% endif %};
+                border: 1px solid {% if w.over %}rgba(239,68,68,0.3){% else %}rgba(245,158,11,0.3){% endif %};
+                color: {% if w.over %}#f87171{% else %}#fbbf24{% endif %};
+                border-radius: 10px; font-size:0.9rem;">
+                <i class="fas fa-{% if w.over %}exclamation-circle{% else %}exclamation-triangle{% endif %} me-2"></i>
+                {% if w.over %}
+                    <strong>{{ w.category }}</strong> is over budget!
+                    Spent ৳{{ "{:,.0f}".format(w.spent) }}
+                    of ৳{{ "{:,.0f}".format(w.budget) }}
+                {% else %}
+                    <strong>{{ w.category }}</strong> is {{ w.percentage }}% used —
+                    ৳{{ "{:,.0f}".format(w.budget - w.spent) }} remaining
+                {% endif %}
+                <button onclick="document.getElementById('warn-{{ loop.index }}').style.display='none'"
+                        style="float:right; background:transparent; border:none;
+                               color:inherit; cursor:pointer; font-size:1rem; line-height:1;">
+                    ×
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Budget Cards -->
+        {% for b in budget_data %}
+        <div class="budget-card {{ b.status if b.status in ['danger','warning'] else '' }}">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span style="background:rgba(22,163,74,0.1); color:#4ade80;
+                                 padding:0.3rem 0.7rem; border-radius:20px;
+                                 font-size:0.75rem; font-weight:600;">
+                        {{ b.category }}
+                    </span>
+                    <span class="status-badge status-{{ b.status }}">
+                        {{ b.status_text }}
+                    </span>
+                </div>
+                <div class="d-flex gap-2 align-items-center">
+                    <button class="btn-edit-small"
+                            onclick="toggleEdit('edit-{{ b.id }}', '{{ b.budget }}')">
+                        <i class="fas fa-pen me-1"></i>Edit
+                    </button>
+                    <form method="POST"
+                          action="{{ url_for('expenses.delete_budget', id=b.id) }}"
+                          style="display:inline;"
+                          onsubmit="return confirm('Permanently remove {{ b.category }} budget?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn-delete-small">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Inline edit form -->
+            <div class="inline-edit" id="edit-{{ b.id }}">
+                <form method="POST" action="{{ url_for('expenses.budgets') }}"
+                      style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="category" value="{{ b.category }}">
+                    <span style="color:#94a3b8; font-size:0.85rem;">৳</span>
+                    <input type="number" name="amount" id="input-{{ b.id }}"
+                           min="1" step="0.01" placeholder="{{ b.budget }}">
+                    <button type="submit" class="btn-save-small">
+                        <i class="fas fa-check me-1"></i>Save
+                    </button>
+                    <button type="button" class="btn-cancel-small"
+                            onclick="toggleEdit('edit-{{ b.id }}', null)">
+                        Cancel
+                    </button>
+                </form>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="progress mb-2 mt-2">
+                <div class="progress-bar progress-{{ b.status }}"
+                     style="width: {{ b.percentage }}%">
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <span style="color:#64748b; font-size:0.82rem;">
+                    Spent: <strong style="color:#e2e8f0;">
+                        ৳{{ "{:,.2f}".format(b.spent) }}
+                    </strong>
+                </span>
+                <span style="color:#64748b; font-size:0.82rem;">
+                    {{ "{:.1f}".format(b.real_percentage) }}%
+                </span>
+                <span style="color:#64748b; font-size:0.82rem;">
+                    Budget: <strong style="color:#22c55e;">
+                        ৳{{ "{:,.2f}".format(b.budget) }}
+                    </strong>
+                </span>
+            </div>
+
+            {% if b.remaining < 0 %}
+            <div style="color:#f87171; font-size:0.8rem; margin-top:0.4rem;">
+                <i class="fas fa-arrow-up me-1"></i>
+                Over by ৳{{ "{:,.2f}".format(b.remaining|abs) }}
+            </div>
+            {% else %}
+            <div style="color:#64748b; font-size:0.8rem; margin-top:0.4rem;">
+                <i class="fas fa-arrow-down me-1" style="color:#22c55e;"></i>
+                ৳{{ "{:,.2f}".format(b.remaining) }} remaining
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        {% else %}
+        <div class="empty-budgets">
+            <i class="fas fa-bullseye"></i>
+            <p style="color:#64748b; margin-bottom:0.5rem;">No budgets set yet.</p>
+            <p style="color:#374151; font-size:0.85rem;">
+                Set monthly limits per category to track your spending.
+            </p>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- RIGHT — Set Budget Form -->
+    <div class="col-md-5">
+        <div class="set-budget-card">
+            <h6 style="color:#f1f5f9; font-weight:700; margin-bottom:1.25rem;">
+                <i class="fas fa-plus-circle me-2" style="color:#22c55e;"></i>
+                Set / Update Budget
+            </h6>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <select name="category" class="form-select" required>
+                        <option value="">Choose category...</option>
+                        {% for val, label in categories %}
+                            <option value="{{ val }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Monthly Budget (BDT)</label>
+                    <div class="input-group">
+                        <span class="input-group-text"
+                              style="background:#1f2937; border-color:#374151;
+                                     color:#94a3b8;">৳</span>
+                        <input type="number" name="amount" class="form-control"
+                               placeholder="e.g. 5000" min="1" step="0.01" required>
+                    </div>
+                    <div style="color:#64748b; font-size:0.8rem; margin-top:0.4rem;">
+                        <i class="fas fa-info-circle me-1" style="color:#22c55e;"></i>
+                        Existing budgets will be updated, not duplicated.
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary-green w-100 py-2">
+                    <i class="fas fa-save me-2"></i>Save Budget
+                </button>
+            </form>
+
+            <div style="margin-top:1.5rem; padding-top:1.5rem;
+                        border-top:1px solid #1f2937;">
+                <div style="color:#64748b; font-size:0.8rem; margin-bottom:0.75rem;">
+                    <i class="fas fa-lightbulb me-1" style="color:#fbbf24;"></i>
+                    <strong style="color:#94a3b8;">Budget Tips</strong>
+                </div>
+                <div style="color:#374151; font-size:0.8rem; line-height:2;">
+                    🟢 Green — Under 50% spent<br>
+                    🔵 Blue — 50–80% spent<br>
+                    🟡 Yellow — 80–100% spent<br>
+                    🔴 Red — Over budget!
+                </div>
+            </div>
+
+            {% if budget_data %}
+            <div style="margin-top:1rem; padding-top:1rem;
+                        border-top:1px solid #1f2937;">
+                <div style="color:#64748b; font-size:0.8rem; margin-bottom:0.5rem;">
+                    <i class="fas fa-info-circle me-1" style="color:#22c55e;"></i>
+                    <strong style="color:#94a3b8;">{{ budget_data|length }}</strong>
+                    active budget{{ 's' if budget_data|length != 1 else '' }}
+                    across {{ budget_data|length }} categor{{ 'ies' if budget_data|length != 1 else 'y' }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleEdit(id, currentVal) {
+    const el = document.getElementById(id);
+    if (el.style.display === 'flex') {
+        el.style.display = 'none';
+    } else {
+        el.style.display = 'flex';
+        if (currentVal) {
+            const inputId = id.replace('edit-', 'input-');
+            const input = document.getElementById(inputId);
+            if (input) input.value = currentVal;
+        }
+    }
+}
+</script>
+{% endblock %}

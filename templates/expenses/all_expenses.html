@@ -1,0 +1,367 @@
+{% extends "base.html" %}
+{% block title %}All Expenses — Smart Expense Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .filter-card {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    .filter-card .form-control,
+    .filter-card .form-select {
+        background: #0f172a;
+        border: 1px solid #374151;
+        color: #f9fafb;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+    .filter-card .form-control::placeholder { color: #6b7280; }
+    .filter-card .form-control:focus,
+    .filter-card .form-select:focus {
+        border-color: #16a34a;
+        box-shadow: 0 0 0 3px rgba(22,163,74,0.2);
+        background: #0f172a;
+        color: #f9fafb;
+    }
+    .filter-card .form-select option { background: #1f2937; }
+    .category-badge {
+        padding: 0.3rem 0.7rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .btn-action {
+        background: transparent;
+        border: 1px solid #374151;
+        color: #94a3b8;
+        border-radius: 6px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .btn-action:hover { border-color: #16a34a; color: #22c55e; }
+    .btn-action.delete:hover { border-color: #ef4444; color: #f87171; }
+    .pagination .page-link {
+        background: #111827;
+        border-color: #1f2937;
+        color: #94a3b8;
+        border-radius: 6px;
+        margin: 0 2px;
+    }
+    .pagination .page-link:hover {
+        background: rgba(22,163,74,0.1);
+        border-color: #16a34a;
+        color: #22c55e;
+    }
+    .pagination .page-item.active .page-link {
+        background: #16a34a;
+        border-color: #16a34a;
+        color: white;
+    }
+    .pagination .page-item.disabled .page-link {
+        background: #0f172a;
+        color: #374151;
+    }
+    .results-info {
+        color: #64748b;
+        font-size: 0.85rem;
+    }
+    .active-filter {
+        background: rgba(22,163,74,0.1);
+        border: 1px solid rgba(22,163,74,0.3);
+        color: #4ade80;
+        border-radius: 20px;
+        padding: 0.2rem 0.7rem;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .active-filter a { color: #4ade80; text-decoration: none; }
+    .active-filter a:hover { color: #f87171; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1" style="color:#f1f5f9; font-weight:700;">
+            <i class="fas fa-list me-2" style="color:#22c55e;"></i>All Expenses
+        </h4>
+        <p class="mb-0" style="color:#64748b; font-size:0.9rem;">
+            Your complete expense history
+        </p>
+    </div>
+    <a href="{{ url_for('expenses.add_expense') }}" class="btn btn-primary-green px-4">
+        <i class="fas fa-plus me-2"></i>Add Expense
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="filter-card">
+    <form method="GET" action="{{ url_for('expenses.all_expenses') }}">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label" style="color:#94a3b8; font-size:0.8rem;">
+                    <i class="fas fa-search me-1"></i>Search
+                </label>
+                <input type="text" name="search" class="form-control"
+                       placeholder="Search descriptions..."
+                       value="{{ search_query }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" style="color:#94a3b8; font-size:0.8rem;">
+                    <i class="fas fa-tag me-1"></i>Category
+                </label>
+                <select name="category" class="form-select">
+                    <option value="">All Categories</option>
+                    {% for val, label in categories %}
+                        <option value="{{ val }}"
+                            {% if category_filter == val %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" style="color:#94a3b8; font-size:0.8rem;">
+                    <i class="fas fa-calendar me-1"></i>From
+                </label>
+                <input type="date" name="date_from" class="form-control"
+                       value="{{ date_from }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" style="color:#94a3b8; font-size:0.8rem;">
+                    <i class="fas fa-calendar me-1"></i>To
+                </label>
+                <input type="date" name="date_to" class="form-control"
+                       value="{{ date_to }}">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-primary-green flex-grow-1">
+                    <i class="fas fa-filter me-1"></i>Filter
+                </button>
+                <a href="{{ url_for('expenses.all_expenses') }}"
+                   class="btn"
+                   style="background:#1f2937; color:#94a3b8;
+                          border:1px solid #374151; border-radius:8px;">
+                    <i class="fas fa-times"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <!-- Active filters -->
+    {% if search_query or category_filter or date_from or date_to %}
+    <div class="mt-2 d-flex gap-2 flex-wrap">
+        <span style="color:#64748b; font-size:0.8rem; padding-top:0.2rem;">
+            Active filters:
+        </span>
+        {% if search_query %}
+        <span class="active-filter">
+            "{{ search_query }}"
+            <a href="{{ url_for('expenses.all_expenses',
+                category=category_filter, date_from=date_from,
+                date_to=date_to) }}">×</a>
+        </span>
+        {% endif %}
+        {% if category_filter %}
+        <span class="active-filter">
+            {{ category_filter }}
+            <a href="{{ url_for('expenses.all_expenses',
+                search=search_query, date_from=date_from,
+                date_to=date_to) }}">×</a>
+        </span>
+        {% endif %}
+        {% if date_from %}
+        <span class="active-filter">
+            From: {{ date_from }}
+            <a href="{{ url_for('expenses.all_expenses',
+                search=search_query, category=category_filter,
+                date_to=date_to) }}">×</a>
+        </span>
+        {% endif %}
+        {% if date_to %}
+        <span class="active-filter">
+            To: {{ date_to }}
+            <a href="{{ url_for('expenses.all_expenses',
+                search=search_query, category=category_filter,
+                date_from=date_from) }}">×</a>
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Results summary -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="results-info">
+        Showing <strong style="color:#e2e8f0;">{{ expenses.total }}</strong> expenses
+        {% if search_query or category_filter or date_from or date_to %}
+            (filtered)
+        {% endif %}
+        — Total: <strong style="color:#22c55e;">
+            ৳{{ "{:,.2f}".format(total_filtered) }}
+        </strong>
+    </div>
+    <div class="results-info">
+        Page {{ expenses.page }} of {{ expenses.pages }}
+    </div>
+</div>
+
+<!-- Expenses Table -->
+<div class="card">
+    <div class="card-body p-0">
+        {% if expenses.items %}
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Notes</th>
+                        <th>Amount</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in expenses.items %}
+                    <tr>
+                        <td style="color:#64748b; font-size:0.85rem; white-space:nowrap;">
+                            {{ expense.date.strftime("%d %b %Y") }}
+                        </td>
+                        <td style="color:#e2e8f0;">
+                            {{ expense.description }}
+                            {% if expense.ai_categorized %}
+                                <span class="badge badge-ai ms-1">
+                                    <i class="fas fa-robot me-1"></i>AI
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="category-badge
+                                {{ get_category_badge(expense.category) }}">
+                                {{ expense.category }}
+                            </span>
+                        </td>
+                        <td style="color:#64748b; font-size:0.85rem; max-width:150px;">
+                            {% if expense.notes %}
+                                <span title="{{ expense.notes }}">
+                                    {{ expense.notes[:30] }}
+                                    {% if expense.notes|length > 30 %}...{% endif %}
+                                </span>
+                            {% else %}
+                                <span style="color:#374151;">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:#22c55e; font-weight:600; white-space:nowrap;">
+                            ৳{{ "{:,.2f}".format(expense.amount) }}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('expenses.edit_expense',
+                                       id=expense.id) }}"
+                               class="btn-action me-1">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form method="POST"
+                                  action="{{ url_for('expenses.delete_expense',
+                                           id=expense.id) }}"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Delete this expense?')">
+                                <input type="hidden" name="csrf_token"
+                                       value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-action delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if expenses.pages > 1 %}
+        <div class="d-flex justify-content-center py-3">
+            <nav>
+                <ul class="pagination mb-0">
+                    <li class="page-item {% if not expenses.has_prev %}disabled{% endif %}">
+                        <a class="page-link"
+                           href="{{ url_for('expenses.all_expenses',
+                                   page=expenses.prev_num,
+                                   search=search_query,
+                                   category=category_filter,
+                                   date_from=date_from,
+                                   date_to=date_to) }}">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    </li>
+                    {% for p in expenses.iter_pages(left_edge=1, right_edge=1,
+                                                    left_current=2, right_current=2) %}
+                        {% if p %}
+                            <li class="page-item
+                                {% if p == expenses.page %}active{% endif %}">
+                                <a class="page-link"
+                                   href="{{ url_for('expenses.all_expenses',
+                                           page=p,
+                                           search=search_query,
+                                           category=category_filter,
+                                           date_from=date_from,
+                                           date_to=date_to) }}">
+                                    {{ p }}
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">…</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item
+                        {% if not expenses.has_next %}disabled{% endif %}">
+                        <a class="page-link"
+                           href="{{ url_for('expenses.all_expenses',
+                                   page=expenses.next_num,
+                                   search=search_query,
+                                   category=category_filter,
+                                   date_from=date_from,
+                                   date_to=date_to) }}">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div style="text-align:center; padding:3rem; color:#374151;">
+            <i class="fas fa-receipt"
+               style="font-size:3rem; margin-bottom:1rem; display:block;
+                      color:#1f2937;"></i>
+            <p style="color:#64748b;">No expenses found.</p>
+            {% if search_query or category_filter or date_from or date_to %}
+                <a href="{{ url_for('expenses.all_expenses') }}"
+                   class="btn btn-primary-green px-4">
+                    Clear Filters
+                </a>
+            {% else %}
+                <a href="{{ url_for('expenses.add_expense') }}"
+                   class="btn btn-primary-green px-4">
+                    Add Your First Expense
+                </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

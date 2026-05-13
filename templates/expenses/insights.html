@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}AI Insights — Smart Expense Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .insight-card {
+        background: #111827;
+        border: 1px solid rgba(22,163,74,0.2);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 1rem;
+    }
+    .insight-bullet {
+        background: rgba(22,163,74,0.05);
+        border-left: 3px solid #16a34a;
+        border-radius: 0 8px 8px 0;
+        padding: 1rem 1.2rem;
+        margin-bottom: 0.75rem;
+        color: #e2e8f0 !important;
+        font-size: 0.95rem;
+        line-height: 1.6;
+    }
+    .insight-bullet:last-child { margin-bottom: 0; }
+    .groq-badge {
+        background: rgba(22,163,74,0.1);
+        border: 1px solid rgba(22,163,74,0.3);
+        color: #4ade80;
+        border-radius: 20px;
+        padding: 0.3rem 0.9rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .table tbody td { color: #e2e8f0 !important; }
+    .table thead th { color: #94a3b8 !important; }
+    .category-badge {
+        padding: 0.3rem 0.7rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .badge-food { background: rgba(239,68,68,0.15); color: #f87171; }
+    .badge-transport { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .badge-housing { background: rgba(168,85,247,0.15); color: #c084fc; }
+    .badge-health { background: rgba(236,72,153,0.15); color: #f472b6; }
+    .badge-entertainment { background: rgba(245,158,11,0.15); color: #fbbf24; }
+    .badge-shopping { background: rgba(20,184,166,0.15); color: #2dd4bf; }
+    .badge-other { background: rgba(100,116,139,0.15); color: #94a3b8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1" style="color:#f1f5f9; font-weight:700;">
+            <i class="fas fa-brain me-2" style="color:#22c55e;"></i>AI Financial Insights
+        </h4>
+        <p class="mb-0" style="color:#64748b; font-size:0.9rem;">
+            Based on your last 30 days of spending
+        </p>
+    </div>
+    <span class="groq-badge">
+        <i class="fas fa-robot me-1"></i>Powered by Groq
+    </span>
+</div>
+
+<!-- Insights -->
+<div class="insight-card">
+    {% set lines = insights.split('\n') %}
+    {% for line in lines %}
+        {% if line.strip() %}
+            <div class="insight-bullet">
+                <i class="fas fa-circle-check me-2" style="color:#22c55e; font-size:0.8rem;"></i>
+                {{ line.strip().lstrip('•').strip() }}
+            </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Summary stats -->
+<div class="card mt-3">
+    <div class="card-header">
+        <span style="color:#f1f5f9; font-weight:600;">
+            <i class="fas fa-receipt me-2" style="color:#22c55e;"></i>
+            Last 30 Days — ৳{{ "{:,.2f}".format(total) }} total
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in expenses %}
+                    <tr>
+                        <td style="color:#64748b; font-size:0.85rem;">
+                            {{ e.date.strftime("%d %b") }}
+                        </td>
+                        <td style="color:#e2e8f0;">{{ e.description }}</td>
+                        <td>
+                            <span class="category-badge badge-{{ e.category.lower() }}">
+                                {{ e.category }}
+                            </span>
+                        </td>
+                        <td style="color:#22c55e; font-weight:600;">
+                            ৳{{ "{:,.2f}".format(e.amount) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

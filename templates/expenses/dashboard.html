@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Smart Expense Tracker{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-card {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    .chart-title {
+        color: #94a3b8;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 1rem;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #374151;
+    }
+    .empty-state i { font-size: 3rem; margin-bottom: 1rem; color: #1f2937; }
+    .btn-action {
+        background: transparent;
+        border: 1px solid #374151;
+        color: #94a3b8;
+        border-radius: 6px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .btn-action:hover { border-color: #16a34a; color: #22c55e; }
+    .btn-action.delete:hover { border-color: #ef4444; color: #f87171; }
+    .category-badge {
+        padding: 0.3rem 0.7rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1" style="color:#f1f5f9; font-weight:700;">
+            Dashboard
+        </h4>
+        <p class="mb-0" style="color:#64748b; font-size:0.9rem;">
+            Welcome back, <span style="color:#22c55e;">{{ current_user.username }}</span>
+        </p>
+    </div>
+    <a href="{{ url_for('expenses.add_expense') }}" class="btn btn-primary-green px-4">
+        <i class="fas fa-plus me-2"></i>Add Expense
+    </a>
+</div>
+
+<!-- Budget Warnings -->
+{% if budget_warnings %}
+<div class="mb-4">
+    {% for w in budget_warnings %}
+    <div class="alert mb-2" style="
+        background: {% if w.over %}rgba(239,68,68,0.1){% else %}rgba(245,158,11,0.1){% endif %};
+        border: 1px solid {% if w.over %}rgba(239,68,68,0.3){% else %}rgba(245,158,11,0.3){% endif %};
+        color: {% if w.over %}#f87171{% else %}#fbbf24{% endif %};
+        border-radius: 10px; font-size:0.9rem;">
+        <i class="fas fa-{% if w.over %}exclamation-circle{% else %}exclamation-triangle{% endif %} me-2"></i>
+        {% if w.over %}
+            <strong>{{ w.category }}</strong> is over budget!
+            Spent ৳{{ "{:,.0f}".format(w.spent) }}
+            of ৳{{ "{:,.0f}".format(w.budget) }}
+        {% else %}
+            <strong>{{ w.category }}</strong> budget is {{ w.percentage }}% used —
+            ৳{{ "{:,.0f}".format(w.budget - w.spent) }} remaining
+        {% endif %}
+        <a href="{{ url_for('expenses.budgets') }}"
+           style="float:right; color:inherit; font-size:0.8rem;">
+            Manage →
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Metric Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="metric-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="metric-label">This Month</div>
+                    <div class="metric-value">৳{{ "{:,.0f}".format(total_this_month) }}</div>
+                </div>
+                <div class="metric-icon" style="background:rgba(22,163,74,0.1);">
+                    <i class="fas fa-calendar-alt" style="color:#22c55e;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="metric-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="metric-label">Avg Daily</div>
+                    <div class="metric-value">৳{{ "{:,.0f}".format(avg_daily) }}</div>
+                </div>
+                <div class="metric-icon" style="background:rgba(59,130,246,0.1);">
+                    <i class="fas fa-chart-line" style="color:#60a5fa;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="metric-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="metric-label">Top Category</div>
+                    <div class="metric-value" style="font-size:1.2rem;">{{ top_category }}</div>
+                </div>
+                <div class="metric-icon" style="background:rgba(245,158,11,0.1);">
+                    <i class="fas fa-tag" style="color:#fbbf24;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="metric-card">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="metric-label">Total Entries</div>
+                    <div class="metric-value">{{ total_entries }}</div>
+                </div>
+                <div class="metric-icon" style="background:rgba(168,85,247,0.1);">
+                    <i class="fas fa-receipt" style="color:#c084fc;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-8">
+        <div class="chart-card">
+            <div class="chart-title">
+                <i class="fas fa-chart-bar me-2"></i>Last 6 Months Spending
+            </div>
+            <canvas id="barChart" height="100"></canvas>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="chart-card">
+            <div class="chart-title">
+                <i class="fas fa-chart-pie me-2"></i>By Category
+            </div>
+            <canvas id="doughnutChart" height="180"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Expenses Table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span style="color:#f1f5f9; font-weight:600;">
+            <i class="fas fa-list me-2" style="color:#22c55e;"></i>Recent Expenses
+        </span>
+        <a href="{{ url_for('expenses.all_expenses') }}"
+           style="color:#64748b; font-size:0.85rem; text-decoration:none;">
+            Showing last 10 — <span style="color:#22c55e;">View all →</span>
+        </a>
+    </div>
+    <div class="card-body p-0">
+        {% if expenses %}
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in expenses %}
+                    <tr>
+                        <td style="color:#64748b; font-size:0.85rem;">
+                            {{ expense.date.strftime("%d %b %Y") }}
+                        </td>
+                        <td style="color:#e2e8f0;">
+                            {{ expense.description }}
+                            {% if expense.ai_categorized %}
+                                <span class="badge badge-ai ms-1">
+                                    <i class="fas fa-robot me-1"></i>AI
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="category-badge {{ get_category_badge(expense.category) }}">
+                                {{ expense.category }}
+                            </span>
+                        </td>
+                        <td style="color:#22c55e; font-weight:600;">
+                            ৳{{ "{:,.2f}".format(expense.amount) }}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('expenses.edit_expense', id=expense.id) }}"
+                               class="btn-action me-1">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form method="POST"
+                                  action="{{ url_for('expenses.delete_expense', id=expense.id) }}"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('Delete this expense?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn-action delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center; padding:3rem 2rem;">
+            <div style="width:80px; height:80px; border-radius:50%;
+                        background:rgba(22,163,74,0.1);
+                        border: 2px dashed rgba(22,163,74,0.3);
+                        display:flex; align-items:center; justify-content:center;
+                        margin:0 auto 1.5rem;">
+                <i class="fas fa-wallet" style="font-size:2rem; color:#16a34a;"></i>
+            </div>
+            <h5 style="color:#f1f5f9; font-weight:700; margin-bottom:0.5rem;">
+                Welcome to Smart Expense Tracker!
+            </h5>
+            <p style="color:#64748b; max-width:400px; margin:0 auto 1.5rem; font-size:0.95rem;">
+                Start tracking your expenses to get AI-powered insights,
+                beautiful charts, and monthly PDF reports.
+            </p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a href="{{ url_for('expenses.add_expense') }}"
+                   class="btn btn-primary-green px-4">
+                    <i class="fas fa-plus me-2"></i>Add First Expense
+                </a>
+                <a href="{{ url_for('expenses.insights') }}"
+                   class="btn"
+                   style="background:#1f2937; color:#94a3b8;
+                          border:1px solid #374151; border-radius:8px;
+                          padding:0.5rem 1.5rem;">
+                    <i class="fas fa-brain me-2" style="color:#22c55e;"></i>
+                    Explore AI Insights
+                </a>
+            </div>
+            <div class="row g-3 mt-3" style="max-width:500px; margin:0 auto;">
+                <div class="col-4">
+                    <div style="background:#0f172a; border:1px solid #1f2937;
+                                border-radius:10px; padding:1rem; text-align:center;">
+                        <i class="fas fa-robot" style="color:#22c55e; font-size:1.2rem;"></i>
+                        <div style="color:#94a3b8; font-size:0.75rem; margin-top:0.4rem;">
+                            AI Categorization
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div style="background:#0f172a; border:1px solid #1f2937;
+                                border-radius:10px; padding:1rem; text-align:center;">
+                        <i class="fas fa-chart-pie" style="color:#60a5fa; font-size:1.2rem;"></i>
+                        <div style="color:#94a3b8; font-size:0.75rem; margin-top:0.4rem;">
+                            Live Charts
+                        </div>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div style="background:#0f172a; border:1px solid #1f2937;
+                                border-radius:10px; padding:1rem; text-align:center;">
+                        <i class="fas fa-file-pdf" style="color:#f87171; font-size:1.2rem;"></i>
+                        <div style="color:#94a3b8; font-size:0.75rem; margin-top:0.4rem;">
+                            PDF Reports
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const monthData = {{ month_data|safe }};
+const catData   = {{ cat_data|safe }};
+
+Chart.defaults.color = '#64748b';
+Chart.defaults.borderColor = '#1f2937';
+
+// Bar chart
+new Chart(document.getElementById('barChart'), {
+    type: 'bar',
+    data: {
+        labels: monthData.map(d => d.month),
+        datasets: [{
+            label: 'Total Spending (BDT)',
+            data: monthData.map(d => d.total),
+            backgroundColor: 'rgba(22,163,74,0.7)',
+            borderColor: '#16a34a',
+            borderWidth: 1,
+            borderRadius: 6,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: {
+                grid: { color: '#1f2937' },
+                ticks: { callback: v => '৳' + v.toLocaleString() }
+            },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// Doughnut chart
+const COLORS = [
+    '#f87171','#60a5fa','#c084fc','#f472b6',
+    '#fbbf24','#2dd4bf','#94a3b8','#34d399',
+    '#fb923c','#a78bfa','#38bdf8','#4ade80'
+];
+new Chart(document.getElementById('doughnutChart'), {
+    type: 'doughnut',
+    data: {
+        labels: catData.map(d => d.category),
+        datasets: [{
+            data: catData.map(d => d.total),
+            backgroundColor: COLORS,
+            borderColor: '#111827',
+            borderWidth: 3,
+        }]
+    },
+    options: {
+        responsive: true,
+        cutout: '65%',
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { padding: 12, font: { size: 11 } }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}
