@@ -114,6 +114,25 @@ Both AI features are powered by **Groq's LLaMA 3.3-70B** model:
 
 ---
 
+## 📸 Screenshots
+
+### Login
+![Login](screenshots/login.png)
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### All Expenses
+![All Expenses](screenshots/all-expenses.png)
+
+### Budget Manager
+![Budgets](screenshots/budgets.png)
+
+### AI Insights
+![AI Insights](screenshots/ai-insights.png)
+
+---
+
 ## 📄 License
 
 This project is open source and available under the [MIT License](LICENSE).
