@@ -117,19 +117,19 @@ Both AI features are powered by **Groq's LLaMA 3.3-70B** model:
 ## 📸 Screenshots
 
 ### Login
-![Login](screenshots/login.png)
+![Login](screenshots/login.png.png)
 
 ### Dashboard
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](screenshots/dashboard.png.png)
 
 ### All Expenses
-![All Expenses](screenshots/all-expenses.png)
+![All Expenses](screenshots/all-expenses.png.png)
 
 ### Budget Manager
-![Budgets](screenshots/budgets.png)
+![Budgets](screenshots/budgets.png.png)
 
 ### AI Insights
-![AI Insights](screenshots/ai-insights.png)
+![AI Insights](screenshots/ai-insights.png.png)
 
 ---
 
